@@ -84,6 +84,7 @@ specs/001-player-movement-claiming/
 ### Source Code (repository root)
 
 ```text
+.gitignore
 Qix.slnx
 src/
 └── Qix/
@@ -103,9 +104,10 @@ tests/
 └── Qix.Tests/
     ├── Qix.Tests.csproj        # xUnit, references src/Qix
     ├── MovementTests.cs        # Border travel, blocked moves, corners
-    ├── DrawingTests.cs         # Trail creation, blocks, releasing Space
+    ├── DrawingTests.cs         # Draw toggle, trail creation, blocks, auto-off on close
     ├── ClaimingTests.cs        # Straight/L/pocket fills, tie rule, demotion
-    └── ProgressTests.cs        # Percentage rounding, 75% completion, restart
+    ├── ProgressTests.cs        # Percentage rounding, 75% completion, restart
+    └── PlayfieldAssert.cs      # Test helpers: cell rectangles, border invariant, region count
 ```
 
 **Structure Decision**: A single console project with `Core` (logic) and `Terminal` (I/O)
