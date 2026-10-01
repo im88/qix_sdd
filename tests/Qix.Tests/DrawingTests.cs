@@ -4,8 +4,14 @@ namespace Qix.Tests;
 
 public class DrawingTests
 {
-    // 10×6 field, marker starts at (5, 5) on the bottom frame.
-    private static Game NewGame() => new(new Playfield(10, 6));
+    // 10×6 field, marker starts at (5, 5) on the bottom frame. The Qix is moved off the
+    // x = 5 column the lines here are drawn along.
+    private static Game NewGame()
+    {
+        var game = new Game(new Playfield(10, 6));
+        game.Qix.Position = new Point(1, 1);
+        return game;
+    }
 
     [Fact]
     public void ToggleDraw_flips_draw_on_and_off()

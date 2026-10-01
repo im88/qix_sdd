@@ -29,3 +29,10 @@ public static class DirectionExtensions
         _ => throw new ArgumentOutOfRangeException(nameof(d)),
     };
 }
+
+/// <summary>Diagonal travel direction of the Qix; each component is −1 or +1 while moving diagonally.</summary>
+public readonly record struct Velocity(int Dx, int Dy)
+{
+    /// <summary>The four diagonals, for picking a random start direction.</summary>
+    public static Velocity[] Diagonals { get; } = [new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)];
+}
