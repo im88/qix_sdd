@@ -105,6 +105,7 @@ internal sealed class Renderer
         ConsoleColor.Yellow => 93,
         ConsoleColor.Red => 91,
         ConsoleColor.DarkCyan => 36,
+        ConsoleColor.Magenta => 95,
         _ => throw new ArgumentOutOfRangeException(nameof(color)),
     };
 }

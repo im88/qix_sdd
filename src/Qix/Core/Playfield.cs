@@ -55,16 +55,21 @@ public sealed class Playfield
     }
 
     /// <summary>
-    /// Completes the line: it becomes border, every Empty region except the largest is claimed,
-    /// and border cells that no longer touch open area are demoted (research R5).
+    /// Completes the line: it becomes border, every Empty region except the one containing
+    /// <paramref name="keep"/> (the Qix's cell) is claimed, and border cells that no longer touch
+    /// open area are demoted (research R5, R15).
     /// </summary>
-    public void CloseTrail()
+    /// <exception cref="InvalidOperationException"><paramref name="keep"/> is not an Empty cell.</exception>
+    public void CloseTrail(Point keep)
     {
         Replace(Cell.Trail, Cell.Border);
-        ClaimAllButLargestRegion();
+        ClaimAllExceptRegionOf(keep);
         DemoteEnclosedBorder();
         ClaimedPercent = 100 * CountNonEmptyInterior() / InteriorCount;
     }
+
+    /// <summary>Erases the line being drawn after a lost life; <see cref="ClaimedPercent"/> is unaffected.</summary>
+    public void ClearTrail() => Replace(Cell.Trail, Cell.Empty);
 
     private int CountNonEmptyInterior()
     {
@@ -97,34 +102,20 @@ public sealed class Playfield
         }
     }
 
-    private void ClaimAllButLargestRegion()
+    /// <summary>Claims every Empty cell outside the region containing <paramref name="keep"/> (research R15).</summary>
+    private void ClaimAllExceptRegionOf(Point keep)
     {
-        // Rows are scanned top to bottom, left to right, so region 0 holds the topmost-leftmost
-        // Empty cell. Keeping the first of equally large regions is the spec's tie rule.
-        var regionOf = new int[Width, Height];
-        var sizes = new List<int>();
-        for (var y = 0; y < Height; y++)
+        if (!Contains(keep) || _cells[keep.X, keep.Y] != Cell.Empty)
         {
-            for (var x = 0; x < Width; x++)
-            {
-                if (_cells[x, y] == Cell.Empty && regionOf[x, y] == 0)
-                {
-                    sizes.Add(FloodFill(new Point(x, y), regionOf, sizes.Count + 1));
-                }
-            }
+            throw new InvalidOperationException($"Keep point ({keep.X}, {keep.Y}) is not an Empty cell.");
         }
 
-        if (sizes.Count < 2)
-        {
-            return;
-        }
-
-        var keep = sizes.IndexOf(sizes.Max()) + 1;
+        var kept = FloodFill(keep);
         for (var x = 0; x < Width; x++)
         {
             for (var y = 0; y < Height; y++)
             {
-                if (_cells[x, y] == Cell.Empty && regionOf[x, y] != keep)
+                if (_cells[x, y] == Cell.Empty && !kept[x, y])
                 {
                     _cells[x, y] = Cell.Claimed;
                 }
@@ -132,28 +123,27 @@ public sealed class Playfield
         }
     }
 
-    /// <summary>Labels the 4-connected Empty region containing <paramref name="start"/>; returns its size.</summary>
-    private int FloodFill(Point start, int[,] regionOf, int label)
+    /// <summary>Marks the 4-connected Empty region containing <paramref name="start"/>.</summary>
+    private bool[,] FloodFill(Point start)
     {
+        var inRegion = new bool[Width, Height];
         var queue = new Queue<Point>();
-        regionOf[start.X, start.Y] = label;
+        inRegion[start.X, start.Y] = true;
         queue.Enqueue(start);
-        var size = 0;
         while (queue.TryDequeue(out var p))
         {
-            size++;
             foreach (var d in Enum.GetValues<Direction>())
             {
                 var n = p + d;
-                if (Contains(n) && _cells[n.X, n.Y] == Cell.Empty && regionOf[n.X, n.Y] == 0)
+                if (Contains(n) && _cells[n.X, n.Y] == Cell.Empty && !inRegion[n.X, n.Y])
                 {
-                    regionOf[n.X, n.Y] = label;
+                    inRegion[n.X, n.Y] = true;
                     queue.Enqueue(n);
                 }
             }
         }
 
-        return size;
+        return inRegion;
     }
 
     private void DemoteEnclosedBorder()

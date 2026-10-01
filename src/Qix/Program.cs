@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Qix.Core;
 using Qix.Terminal;
 
@@ -13,6 +14,7 @@ var renderer = new Renderer();
 var game = new Game();
 var windowSize = (Width: -1, Height: -1);
 var running = true;
+var stopwatch = Stopwatch.StartNew();
 while (running)
 {
     var currentSize = (Width: Console.WindowWidth, Height: Console.WindowHeight);
@@ -31,6 +33,16 @@ while (running)
             HandleGameKey(game, key.Key);
         }
     }
+
+    // Keys are handled before time passes, so a move that closes the line beats the Qix (R13).
+    // While the window is too small the game is paused; restarting the stopwatch keeps the Qix
+    // from jumping once the window is big enough again.
+    if (running && !tooSmall)
+    {
+        dirty |= game.Advance(stopwatch.Elapsed);
+    }
+
+    stopwatch.Restart();
 
     if (currentSize != windowSize)
     {
@@ -78,7 +90,7 @@ static void HandleGameKey(Game game, ConsoleKey key)
         case ConsoleKey.Spacebar:
             game.ToggleDraw();
             break;
-        case ConsoleKey.R when game.Phase == GamePhase.Complete:
+        case ConsoleKey.R when game.Phase is GamePhase.Complete or GamePhase.GameOver:
             game.Restart();
             break;
     }

@@ -19,7 +19,8 @@ How the Qix sees each cell (R12):
 
 ## Velocity (new, readonly record struct)
 
-`Dx`, `Dy`, each −1 or +1 while moving diagonally. Kept separate from `Direction`, which stays the
+`Dx`, `Dy`, each −1 or +1 while moving diagonally. `Velocity.Diagonals` lists the four
+diagonals for the random start direction. Kept separate from `Direction`, which stays the
 marker's four orthogonal directions.
 
 ## Qix (new)
@@ -32,6 +33,10 @@ marker's four orthogonal directions.
 **Step** (one per `QixStepInterval`, only in `Playing`): try candidates in the R12 order; the
 first candidate that is not blocked is taken. Its outcome is either *Move* (position and velocity
 update) or *Contact* (R13; the Qix stays put). If every candidate is blocked, the Qix stays put.
+`Step(Playfield)` returns this as `QixStepOutcome`: `Moved`, `Contact`, or `Stayed`.
+
+The class shares its name with the root namespace `Qix`, so code outside `Qix.Core` (the tests)
+writes `Core.Qix`.
 
 **Invariants**
 
