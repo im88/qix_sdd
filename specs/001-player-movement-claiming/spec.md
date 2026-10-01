@@ -117,6 +117,9 @@ completion message appears and that restarting resets the playfield to 0%.
 - **Dead ends while drawing**: If the marker is surrounded by its own line or by claimed area on
   all sides it can move to, it stays stuck until another direction becomes possible. With no
   enemies there is no penalty, so the player can wait without consequence.
+- **Pockets**: A line that runs right next to itself can enclose small gaps, so a single close
+  can create more than two regions. Every region except the largest is claimed; the tie rule
+  above decides between equally large regions.
 - **Edges that stop being border**: An edge with claimed territory on both sides is no longer
   border, and the marker cannot travel along it.
 - **Simultaneous keys**: If two direction keys are pressed at once, the most recently pressed
@@ -154,8 +157,9 @@ completion message appears and that restarting resets the playfield to 0%.
 - **FR-008**: While the marker is away from the border, it MUST move only while the draw key is
   held. Releasing the draw key MUST stop the marker without penalty.
 - **FR-009**: When a drawing marker reaches a border cell, the game MUST complete the line, split
-  the unclaimed area along it, and mark the smaller resulting region as claimed. The line itself
-  becomes part of the border.
+  the unclaimed area along it, and mark every resulting region except the largest as claimed.
+  For a simple line this is the smaller side; pockets the line encloses against itself are
+  claimed too. The line itself becomes part of the border.
 - **FR-010**: When two regions are exactly equal in size, the game MUST choose which one to claim
   deterministically, as described under Edge Cases.
 - **FR-011**: Claimed territory MUST look clearly different from unclaimed territory, from the
@@ -213,6 +217,8 @@ completion message appears and that restarting resets the playfield to 0%.
 
 ## Assumptions
 
+- **Affected Qix behaviours** (constitution, Development Workflow): player movement, drawing,
+  claiming. Not affected (not yet present): the Qix, the Sparx, scoring, levels.
 - **No enemies or hazards**: As requested, there is no Qix, no Sparx, no fuse, no lives and no
   way to lose. The player can take as long as they like.
 - **Which side gets claimed**: Classic Qix claims the side that does not contain the Qix. With no
