@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Qix/Qix.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Qix.Tests/Qix.Tests.csproj" />
+  </Folder>
+</Solution>

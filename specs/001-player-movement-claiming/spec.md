@@ -8,6 +8,16 @@
 
 **Input**: User description: "player movement and territory claiming, no enemies yet"
 
+## Clarifications
+
+### Session 2026-10-01
+
+- Q: The game must also run in Git Bash, which passes keys on as text and never reports key
+  releases, so "hold Space to draw" can't be detected. How is drawing controlled? → A: Space
+  toggles drawing on and off. Closing a line switches drawing off.
+- Q: How does the marker move, given that held keys can't be detected? → A: One cell per arrow
+  key press; holding an arrow repeats the move at the keyboard's auto-repeat rate.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Move Along the Border (Priority: P1)
@@ -28,21 +38,22 @@ along the frame and stops at corners and dead ends without leaving the border.
 1. **Given** the game has just started, **When** the player looks at the screen, **Then** a
    rectangular playfield with a visible frame is shown, with the marker positioned on the frame
    (bottom edge, centered).
-2. **Given** the marker is on a horizontal edge of the frame, **When** the player holds left or
-   right, **Then** the marker moves one cell per movement step in that direction along the edge.
+2. **Given** the marker is on a horizontal edge of the frame, **When** the player presses left or
+   right, **Then** the marker moves one cell in that direction along the edge. Holding the key
+   repeats the move at the keyboard's auto-repeat rate.
 3. **Given** the marker is on a horizontal edge and not at a corner, **When** the player presses
    up or down without drawing, **Then** the marker does not move.
 4. **Given** the marker is at a corner, **When** the player presses the direction that follows
    the frame around the corner, **Then** the marker turns the corner and continues along the
    adjacent edge.
-5. **Given** the marker is moving, **When** the player releases all direction keys, **Then** the
-   marker stops.
+5. **Given** the marker is moving, **When** the player stops pressing direction keys, **Then** the
+   marker stops; it never moves on its own.
 
 ---
 
 ### User Story 2 - Draw a Line and Claim Territory (Priority: P2)
 
-While holding the draw key, the player steers the marker off the border into the unclaimed area,
+With drawing switched on (Space), the player steers the marker off the border into the unclaimed area,
 leaving a trail line behind it. When the marker reaches a border again, the line closes off a
 region. The smaller of the two regions it creates becomes claimed territory: it is visibly
 filled, and from then on its edges count as border the marker can travel along.
@@ -50,14 +61,14 @@ filled, and from then on its edges count as border the marker can travel along.
 **Why this priority**: Claiming territory is the core Qix mechanic and the main point of this
 feature. It depends on movement (User Story 1).
 
-**Independent Test**: Start the game, hold draw, cut a line straight across a corner of the
+**Independent Test**: Start the game, switch drawing on, cut a line straight across a corner of the
 playfield back to the frame, and confirm the enclosed region fills and the marker can then travel
 along the new edge.
 
 **Acceptance Scenarios**:
 
-1. **Given** the marker is on a border, **When** the player holds the draw key and moves into
-   the unclaimed area, **Then** the marker leaves the border and a visible trail line appears
+1. **Given** the marker is on a border, **When** the player switches drawing on with Space and
+   moves into the unclaimed area, **Then** the marker leaves the border and a visible trail line appears
    along its path.
 2. **Given** the marker is drawing, **When** the marker reaches any border cell, **Then** the
    line is completed, the region on the smaller side of the line is filled as claimed, and the
@@ -69,11 +80,14 @@ along the new edge.
    but cannot enter the inside of claimed territory.
 5. **Given** the marker is drawing, **When** the player tries to move onto the line being drawn,
    **Then** the move is blocked and the marker stays where it is.
-6. **Given** the marker is drawing and away from the border, **When** the player releases the
-   draw key, **Then** the marker stops and stays put; it can only move again when the player
-   resumes drawing.
+6. **Given** the marker is drawing and away from the border, **When** the player switches drawing
+   off with Space, **Then** arrow presses don't move the marker; it can only move again once
+   drawing is switched back on.
 7. **Given** the marker is drawing, **When** the player tries to move into claimed territory,
    **Then** the move is blocked.
+8. **Given** drawing is on, **When** a line closes, **Then** drawing switches off automatically.
+9. **Given** the game is running, **When** the player looks at the status display, **Then** it
+   shows whether drawing is on or off.
 
 ---
 
@@ -122,8 +136,8 @@ completion message appears and that restarting resets the playfield to 0%.
   above decides between equally large regions.
 - **Edges that stop being border**: An edge with claimed territory on both sides is no longer
   border, and the marker cannot travel along it.
-- **Simultaneous keys**: If two direction keys are pressed at once, the most recently pressed
-  direction wins.
+- **Simultaneous keys**: Key presses are handled one at a time, in the order they arrive. There
+  is no diagonal movement.
 - **Terminal too small**: If the terminal is smaller than the required size at launch, the game
   shows a message stating the minimum size and does not start until the window is large enough
   or the player quits.
@@ -142,20 +156,21 @@ completion message appears and that restarting resets the playfield to 0%.
   playfield starts.
 - **FR-003**: The player MUST be able to move the marker in four directions (up, down, left,
   right) using the arrow keys. Diagonal movement is not supported.
-- **FR-004**: The marker MUST move at a constant speed, one cell per movement step, for as long as
-  a direction key is held.
+- **FR-004**: The marker MUST move one cell per arrow key press. Holding an arrow key repeats the
+  move at the keyboard's auto-repeat rate. The marker never moves on its own.
 - **FR-005**: When not drawing, the marker MUST only move along border cells: the outer frame and
   the edges between claimed and unclaimed territory.
 
 **Drawing and claiming**
 
-- **FR-006**: When the player holds the draw key (Space) while moving from a border cell into
-  unclaimed area, the game MUST let the marker leave the border and MUST show the line it
-  leaves behind.
+- **FR-006**: Pressing Space MUST toggle drawing on and off, and the status area MUST show whether
+  drawing is on. When drawing is on and the player moves from a border cell into unclaimed area,
+  the game MUST let the marker leave the border and MUST show the line it leaves behind.
 - **FR-007**: While drawing, the game MUST block movement onto the line being drawn and into
   claimed territory.
-- **FR-008**: While the marker is away from the border, it MUST move only while the draw key is
-  held. Releasing the draw key MUST stop the marker without penalty.
+- **FR-008**: While the marker is away from the border, it MUST move only while drawing is on.
+  Switching drawing off MUST stop the marker in place without penalty. Closing a line MUST
+  switch drawing off.
 - **FR-009**: When a drawing marker reaches a border cell, the game MUST complete the line, split
   the unclaimed area along it, and mark every resulting region except the largest as claimed.
   For a simple line this is the smaller side; pockets the line encloses against itself are
@@ -175,11 +190,12 @@ completion message appears and that restarting resets the playfield to 0%.
   and offer to restart or quit.
 - **FR-015**: Restarting MUST reset the playfield to fully unclaimed and the marker to its
   starting position.
-- **FR-016**: The player MUST be able to quit at any time with the Escape key. Quitting MUST
+- **FR-016**: The player MUST be able to quit at any time with the Escape key (Ctrl+C does the
+  same). Quitting MUST
   restore the terminal to a normal, usable state (cursor visible, no leftover colors).
 - **FR-017**: The game MUST check the terminal size at launch and show a clear message naming the
   minimum required size if the terminal is too small.
-- **FR-018**: The game MUST show the controls (arrow keys, Space to draw, Escape to quit) on
+- **FR-018**: The game MUST show the controls (arrow keys, Space to toggle drawing, Escape to quit) on
   screen.
 
 ### Key Entities
@@ -208,8 +224,8 @@ completion message appears and that restarting resets the playfield to 0%.
   delay the player can notice (under one tenth of a second).
 - **SC-004**: The displayed percentage matches the true claimed share of the playfield, rounded
   down to a whole number, after every fill.
-- **SC-005**: Marker movement looks smooth and steady: a held direction key produces movement at
-  a constant pace, with no visible stutter or flicker during a 10-minute playtest.
+- **SC-005**: Every arrow press moves the marker at once, and a held arrow key moves it at the
+  keyboard's steady repeat rate, with no visible flicker during a 10-minute playtest.
 - **SC-006**: A player can play from 0% to completing the playfield in a single session without
   the game crashing or freezing.
 - **SC-007**: After quitting, the terminal is immediately usable for typing commands, in 100% of
@@ -232,7 +248,10 @@ completion message appears and that restarting resets the playfield to 0%.
   "restart" starts the same empty playfield again.
 - **Fixed playfield**: The playfield has a fixed size that fits a standard terminal window of at
   least 80 columns by 25 rows, including the status area. It does not resize with the window.
-- **Controls**: Arrow keys move, Space draws, Escape quits; on the completion screen, R restarts
-  and Escape quits. Controls are not configurable.
+- **Controls**: Arrow keys move one cell per press, Space toggles drawing, Escape (or Ctrl+C)
+  quits; on the completion screen, R restarts and Escape quits. Controls are not configurable.
+  Held keys are not detected (see Clarifications), so classic Qix's "hold to draw" is replaced
+  by a toggle.
 - **Single player, keyboard only**: There is no mouse, gamepad, or multiplayer support.
-- **Platform**: The game runs in Windows Terminal, as stated in the project constitution.
+- **Platform**: The game runs in Windows Terminal, as stated in the project constitution, and in
+  Git Bash (mintty), which the developer uses day to day.

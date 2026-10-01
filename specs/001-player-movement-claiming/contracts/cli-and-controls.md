@@ -20,8 +20,8 @@ are ignored.
 
 | Key        | Screen      | Effect                                                     |
 |------------|-------------|------------------------------------------------------------|
-| ← ↑ → ↓    | Playing     | Move the marker while held; the most recently pressed arrow wins |
-| Space      | Playing     | Hold to draw into the unclaimed area                       |
+| ← ↑ → ↓    | Playing     | Move the marker one cell per press; holding repeats (keyboard auto-repeat) |
+| Space      | Playing     | Toggle drawing on/off; a closed line switches it off       |
 | Esc        | Any         | Quit and restore the terminal                              |
 | Ctrl+C     | Any         | Same as Esc                                                |
 | R          | Complete    | Start a fresh playfield                                    |
@@ -29,9 +29,9 @@ are ignored.
 ## Screen layout (80×25 minimum)
 
 ```text
-row 0     Claimed: 23% / 75%                       (status line)
+row 0     Claimed: 23% / 75%   Draw: OFF            (status line)
 rows 1-22 ██████████ ... 78×22 playfield, frame included, starting at column 1
-row 23    ←↑→↓ move   Space (hold) draw   Esc quit   (controls hint)
+row 23    ←↑→↓ move   Space draw on/off   Esc quit   (controls hint)
 row 24    (unused)
 ```
 

@@ -22,15 +22,6 @@ or the clock, so tests can drive them step by step.
 
 `Up`, `Down`, `Left`, `Right`, each with a unit offset (dx, dy).
 
-## InputState (readonly record struct)
-
-The input for one movement step, built by the terminal layer from the keys that are pressed.
-
-| Field       | Type          | Notes                                                      |
-|-------------|---------------|------------------------------------------------------------|
-| `Direction` | `Direction?`  | The most recently pressed arrow still held; `null` if none |
-| `DrawHeld`  | `bool`        | Space is held                                              |
-
 ## Playfield
 
 A fixed grid of cells with the claiming logic.
@@ -62,9 +53,11 @@ A fixed grid of cells with the claiming logic.
 | `Mode`     | `MarkerMode`   | `OnBorder` or `Drawing`                                     |
 | `Trail`    | `List<Point>`  | Cells drawn since leaving the border; empty when `OnBorder` |
 
-### Marker mode transitions (one movement step, target = Position + Direction)
+### Marker mode transitions (one `Move(direction)` call, target = Position + Direction)
 
-| Mode       | Draw held | Target cell | Result                                                     |
+`Draw on` is the toggle state (`Game.DrawOn`), flipped by Space.
+
+| Mode       | Draw on   | Target cell | Result                                                     |
 |------------|-----------|-------------|------------------------------------------------------------|
 | `OnBorder` | any       | `Border`    | Move                                                       |
 | `OnBorder` | no        | `Empty`     | Blocked                                                    |
@@ -72,10 +65,10 @@ A fixed grid of cells with the claiming logic.
 | `OnBorder` | any       | `Claimed` / outside | Blocked                                            |
 | `Drawing`  | no        | any         | Blocked (marker stays put, FR-008)                         |
 | `Drawing`  | yes       | `Empty`     | Move, target becomes `Trail`                               |
-| `Drawing`  | yes       | `Border`    | Move, `CloseTrail()`, mode → `OnBorder`                    |
+| `Drawing`  | yes       | `Border`    | Move, `CloseTrail()`, mode → `OnBorder`, draw → off        |
 | `Drawing`  | yes       | `Trail` / `Claimed` | Blocked                                            |
 
-If no direction is held, nothing happens.
+The marker never moves without a `Move` call (one per arrow key press).
 
 ## Game
 
@@ -86,8 +79,10 @@ Ties together the playfield, the marker, and the session phase.
 | `Playfield`, `Marker`     | Current state                                                |
 | `Phase`                   | `Playing` or `Complete`                                      |
 | `TargetPercent`           | 75                                                           |
-| `Step(InputState)`        | Applies one movement step (table above); ignored while `Complete` |
-| `Restart()`               | Creates a fresh playfield and marker; phase → `Playing`      |
+| `DrawOn`                  | Draw toggle; starts off                                      |
+| `ToggleDraw()`            | Flips `DrawOn` (Space); ignored while `Complete`             |
+| `Move(Direction)`         | Applies one move (table above); ignored while `Complete`     |
+| `Restart()`               | Creates a fresh playfield and marker; draw off; phase → `Playing` |
 
 ### Phase transitions
 

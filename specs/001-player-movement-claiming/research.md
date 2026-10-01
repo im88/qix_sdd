@@ -14,36 +14,32 @@
   separate class library for the game logic adds a third project; folder separation inside one
   project is enough (Principle I).
 
-## R2. Detecting held keys (hold Space to draw, hold arrows to move)
+## R2. Keyboard input (revised 2026-10-01)
 
-The spec requires knowing whether keys are *held*: the marker moves while an arrow is held
-(FR-004), and drawing only happens while Space is held (FR-006, FR-008). Playing also requires
-**Space and an arrow held at the same time**.
+The first decision was to read raw Win32 input records (`ReadConsoleInputW`) to detect held
+keys, so that Space could be *held* to draw. The T012 check showed that this doesn't work in Git
+Bash, which the developer wants to use: Git Bash passes keys on as text, so every key-down is
+followed by an immediate key-up and held keys can't be seen. The controls were changed through
+clarification (spec, Clarifications 2026-10-01).
 
-- **Decision**: Read raw console input records with the Win32 functions
-  `GetNumberOfConsoleInputEvents` and `ReadConsoleInputW` (P/Invoke into `kernel32`). Each
-  `KEY_EVENT_RECORD` has a `bKeyDown` flag, so both key-down and key-up are reported. The game
-  keeps a set of currently pressed keys, plus the order in which the arrow keys were pressed so
-  that the most recently pressed one wins. Auto-repeat key-down events are ignored. A
-  `FOCUS_EVENT` that reports focus loss clears the pressed set, so keys can't get "stuck" down.
-- **Rationale**: This is the only option that gives real key-up information, respects window
-  focus, and needs no third-party package. Windows Terminal passes full key-down and key-up
-  records to console apps through ConPTY's win32-input-mode; classic conhost does so natively.
-  The constitution requires Windows Terminal only, so being Windows-only is acceptable.
-- **Risk**: Whether Windows Terminal delivers the key-up records must be checked on the target
-  machine before the rest of the input work is built on it. The quickstart includes a check
-  (V1), and the first input task in `tasks.md` should be a short spike that confirms it.
+- **Decision**: Read keys with `Console.KeyAvailable` + `Console.ReadKey(intercept: true)`, the
+  approach the developer's earlier RectangleDotGame uses successfully in Git Bash. Each arrow
+  press moves the marker one cell; holding an arrow repeats through the keyboard's auto-repeat.
+  Space toggles drawing on and off. `Console.TreatControlCAsInput = true`, so Ctrl+C arrives as
+  an ordinary key and quits like Esc.
+- **Rationale**: This works in both Windows Terminal and Git Bash, needs no P/Invoke for input,
+  and makes the game loop event-driven (no movement timer, see R4). It is simpler than the
+  Win32 approach (Principle I).
+- **Accepted trade-off**: Auto-repeat starts after the keyboard's repeat delay (about
+  250–500 ms), so a held arrow pauses briefly after the first step. Classic Qix's "hold to draw"
+  becomes a toggle.
 - **Alternatives considered**:
-  - `Console.ReadKey` / `Console.KeyAvailable`: these report key-down only. "Held" would have to
-    be guessed from auto-repeat, which starts after a delay of about 250–500 ms (the marker
-    would stutter at the start of every move) and only repeats the *last* key pressed. Holding
-    Space and then pressing an arrow would look like Space had been released. **Rejected**: it
-    cannot satisfy FR-006/FR-008.
-  - `GetAsyncKeyState`: this gives true held state but ignores focus, so the game would react to
-    typing in other windows. **Rejected**.
-  - Making Space a toggle for draw mode: this would work with `Console.ReadKey`, but it changes
-    the spec's controls. **Kept as a fallback** if R2's risk check fails; that change would
-    have to go back through `/speckit-clarify`.
+  - Win32 `ReadConsoleInputW` with key-up tracking: **rejected after testing**, no usable
+    key-ups in Git Bash (see above).
+  - `GetAsyncKeyState`: gives true held state but ignores window focus, so the game would react
+    to typing in other windows. **Rejected**.
+  - Shift + arrows to draw: closer to "hold to draw", but Shift+arrow handling in mintty is less
+    certain. **Rejected** by the developer in favour of the toggle.
 
 ## R3. Rendering without flicker
 
@@ -52,7 +48,7 @@ The spec requires knowing whether keys are *held*: the marker moves while an arr
   sequences (cursor position + color + character), collected in one `StringBuilder` and written
   with a single `Console.Out.Write`. On start, the game switches to the alternate screen buffer
   (`ESC[?1049h`), hides the cursor (`ESC[?25l`), and turns on
-  `ENABLE_VIRTUAL_TERMINAL_PROCESSING`. On exit, all of this is reversed. Output encoding is
+  `ENABLE_VIRTUAL_TERMINAL_PROCESSING` on the output handle (the one remaining P/Invoke). On exit, all of this is reversed. Output encoding is
   UTF-8.
 - **Rationale**: Sending only the differences, in one write, avoids flicker and keeps output
   tiny: moving the marker changes two cells per step. The alternate screen leaves the user's
@@ -62,20 +58,19 @@ The spec requires knowing whether keys are *held*: the marker moves while an arr
   call is a separate write. A TUI library (Terminal.Gui, Spectre.Console) is a dependency
   Principle I does not justify for a single grid view.
 
-## R4. Game loop and timing
+## R4. Game loop (revised 2026-10-01)
 
-- **Decision**: Use a fixed-timestep loop driven by `Stopwatch`. The game logic advances in
-  discrete **movement steps of 50 ms** (20 cells per second); a full horizontal crossing of the
-  playfield takes about 4 s. Each loop iteration reads input, runs as many steps as the elapsed
-  time allows (at most 3 per iteration, so it can't spiral after a pause), renders if anything
-  changed, and then sleeps 1 ms. During play, `timeBeginPeriod(1)` / `timeEndPeriod(1)`
-  (`winmm`) raise the Windows timer resolution so that sleeps are actually about 1 ms.
-- **Rationale**: Windows' default timer granularity of about 15.6 ms would make 50 ms steps land
-  unevenly (47 / 62 ms), which shows as uneven movement (SC-005). Keeping the logic step-based
-  means the logic never reads the clock, so tests can drive it step by step deterministically
-  (Principle II).
-- **Alternatives considered**: `PeriodicTimer` / `System.Threading.Timer` have the same timer
-  granularity and add threading. A busy-wait loop uses 100% of a CPU core.
+- **Decision**: An event-driven loop. Each iteration handles every key in the buffer
+  (`while (Console.KeyAvailable) ReadKey`), checks whether the window size changed (and forces
+  a full redraw if so), redraws if anything changed, and then sleeps 10 ms. Each arrow press
+  calls `Game.Move(direction)` once; there is no movement timer.
+- **Rationale**: With one cell per key press (R2), there is nothing to time. Polling with a
+  short sleep, rather than a blocking `ReadKey`, lets the loop also notice window resizes and
+  serve the too-small-window screen. 10 ms is well below what a player can notice, and the CPU
+  stays idle.
+- **Alternatives considered**: A blocking `ReadKey` loop (like RectangleDotGame) is slightly
+  simpler but can't react to a resize until the next key press. The earlier fixed 50 ms
+  timestep with `timeBeginPeriod(1)` is no longer needed.
 
 ## R5. Claiming algorithm
 
@@ -110,7 +105,7 @@ The spec requires knowing whether keys are *held*: the marker moves while an arr
 
 - **Decision**: The minimum terminal size is 80×25. The playfield is 78×22 cells including the
   frame (76×20 = 1,520 interior cells), drawn at screen column 1, row 1. Row 0 is the status
-  line (`Claimed: NN% / 75%`) and row 23 is the controls hint. **One character per cell.**
+  line (`Claimed: NN% / 75%   Draw: ON|OFF`) and row 23 is the controls hint. **One character per cell.**
   Glyphs: unclaimed `' '`, claimed `'░'` (dark cyan), border `'█'` (white), trail `'█'`
   (yellow), marker `'◆'` (bright red). The marker starts at the bottom frame, centered
   (x = 39, y = 21).
@@ -124,9 +119,9 @@ The spec requires knowing whether keys are *held*: the marker moves while an arr
 ## R8. Testing scope
 
 - **Decision**: xUnit tests cover the core logic only: movement rules (border-only travel,
-  blocked moves), drawing rules (trail, blocks on trail and claimed area, releasing Space),
+  blocked moves), drawing rules (trail, blocks on trail and claimed area, draw toggle),
   claiming (straight, L-shaped, and pocket-forming lines, the tie rule, border demotion), the
-  percentage, and the completion threshold. Rendering, Win32 input, and the loop are verified by
+  percentage, and the completion threshold. Rendering, keyboard input, and the loop are verified by
   the manual playtest in [quickstart.md](quickstart.md).
 - **Rationale**: This is what Principle II asks for: tests where bugs are costly and hard to spot
   by playing, and manual checks for glue code.
@@ -136,7 +131,7 @@ The spec requires knowing whether keys are *held*: the marker moves while an arr
 - **Decision**: At launch, if input or output is redirected (not a real console), the game
   writes an error to stderr and exits with code 1. If the window is smaller than 80×25, it
   shows a "please resize to at least 80×25" message and waits until the window is resized or
-  Esc is pressed (FR-017). Ctrl+C is handled with `Console.CancelKeyPress` (cancel the default
-  kill, request a clean quit) so the terminal is restored in every case. A resize *during* play
+  Esc is pressed (FR-017). Ctrl+C is read as an ordinary key (`Console.TreatControlCAsInput`,
+  R2) and quits like Esc, so the terminal is restored in every case. A resize *during* play
   triggers a full redraw on the next frame. Shrinking the window mid-game below the minimum
   size is out of scope for this feature.
